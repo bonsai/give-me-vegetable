@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ギブミーベジタブル — Events Map & Calendar</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,"Noto Sans JP",sans-serif;color:#222;background:#f7f7f5}header{padding:20px 24px;background:#fff;border-bottom:1px solid #ddd}h1{margin:0;font-size:24px}header p{margin:5px 0 0;color:#666}.layout{display:grid;grid-template-columns:1.35fr 1fr;min-height:calc(100vh - 92px)}#map{min-height:600px}.side{padding:20px;background:#fff;overflow:auto}.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}.filters button{border:1px solid #ccc;background:#fff;border-radius:20px;padding:7px 12px;cursor:pointer}.filters button.active{background:#222;color:#fff}.stats{font-size:13px;color:#666;margin-bottom:12px}.calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}.dow{font-size:11px;color:#888;text-align:center;padding:5px}.day{min-height:58px;background:#f3f3f0;border-radius:6px;padding:5px;font-size:11px;position:relative}.day.muted{opacity:.35}.day .num{font-weight:600}.event{display:block;margin-top:3px;padding:3px;border-radius:4px;background:#222;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}.event:hover{opacity:.75}.events{margin-top:20px}.card{border-top:1px solid #ddd;padding:12px 0;cursor:pointer}.card:hover{background:#fafafa}.date{font-size:12px;color:#777}.place{font-weight:700;margin:3px 0}.meta{font-size:12px;color:#666}.legend{margin-top:14px;font-size:12px;color:#666}@media(max-width:800px){.layout{grid-template-columns:1fr}#map{min-height:420px}.side{order:2}}
+</style>
+</head>
+<body>
+<header><h1>ギブミーベジタブル</h1><p>全国開催イベント — 地図 × カレンダー</p></header>
+<div class="layout"><div id="map"></div><main class="side">
+<div class="filters" id="filters"></div>
+<div class="stats" id="stats"></div>
+<div id="calendar"></div>
+<div class="events" id="events"></div>
+</main></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const events=[
+{subject:'ギブミーベジタブル',pref:'群馬県',place:'前橋市・中央イベント広場',date:'2016-10-22',local_implementer:'南風食堂 / NPO法人まえばし農学会 / ノマド市 / ふれあいあさ市',lat:36.3895,lng:139.0634},
+{subject:'ギブミーベジタブル',pref:'岡山県',place:'岡山・KAMP',date:'2018-07-22',local_implementer:'KAMP / WHJAPAN / 岡山の地元シェフ',lat:34.6657,lng:133.9180},
+{subject:'ギブミーベジタブル',pref:'新潟県',place:'糸魚川市・ITOIGAWA COMMONS',date:'2018-12-02',local_implementer:'糸魚川市農林水産業振興協議会 / 糸魚川市内料理人',lat:37.039,lng:137.862},
+{subject:'ギブミーベジタブル',pref:'鳥取県',place:'鳥取市・THE WHIM depot',date:'2020-02-29',local_implementer:'THE WHIM depot / EN TEA',lat:35.501,lng:134.238},
+{subject:'ギブミーベジタブル',pref:'宮城県',place:'大河原町・うらにわあとりえ',date:'2022-06-18',local_implementer:'うらにわあとりえ / 宮城県内人気店の料理人',lat:38.047,lng:140.731},
+{subject:'ギブミーベジタブル',pref:'福井県',place:'越前市',date:'2022-08-27',local_implementer:'クラフトフェス実行委員会 / 越前市 / ギブミーベジタブル',lat:35.903,lng:136.168},
+{subject:'ギブミーベジタブル',pref:'福井県',place:'越前市',date:'2022-08-28',local_implementer:'クラフトフェス実行委員会 / 越前市 / ギブミーベジタブル',lat:35.903,lng:136.168},
+{subject:'ギブミーベジタブル',pref:'宮城県',place:'蔵王町・遠刈田温泉',date:'2022-10-10',local_implementer:'Togatta Project Inc. / 遠刈田レジデンス044',lat:38.126,lng:140.575},
+{subject:'ギブミーベジタブル',pref:'宮城県',place:'栗原市・風の沢ミュージアム',date:'2024-09-28',local_implementer:'NPO法人風の沢 / くりはら万葉祭',lat:38.77,lng:141.0},
+{subject:'ギブミーベジタブル',pref:'兵庫県',place:'加古川市・みとろの丘',date:'2024-12-01',local_implementer:'みとろの丘 / ギブミーベジタブル',lat:34.788,lng:134.841},
+{subject:'ギブミーベジタブル',pref:'兵庫県',place:'西脇市・タマキニイメ',date:'2025-07-19',local_implementer:'tamaki niime / 西脇市・多可町の事業者',lat:35.0,lng:134.97},
+{subject:'ギブミーベジタブル',pref:'岩手県',place:'紫波町・オガール',date:'2025-09-14',local_implementer:'ギブミーベジタブルin紫波実行委員会 / 紫波町 / オガール',lat:39.554,lng:141.167}
+];
+const prefs=[...new Set(events.map(e=>e.pref))].sort();let selected='ALL';
+const map=L.map('map').setView([36.5,137.5],5.5);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap contributors'}).addTo(map);let markers=[];
+function filtered(){return selected==='ALL'?events:events.filter(e=>e.pref===selected)}
+function renderFilters(){document.getElementById('filters').innerHTML=['ALL',...prefs].map(p=>`<button class="${p===selected?'active':''}" onclick="selectPref('${p}')">${p==='ALL'?'すべて':p}</button>`).join('')}
+function selectPref(p){selected=p;renderAll()}
+function renderMap(){markers.forEach(m=>m.remove());markers=[];filtered().forEach(e=>{const m=L.marker([e.lat,e.lng]).addTo(map).bindPopup(`<b>${e.date}</b><br>${e.place}<br><small>${e.local_implementer}</small>`);markers.push(m)});if(markers.length)map.fitBounds(L.featureGroup(markers).getBounds().pad(.15))}
+function renderCalendar(){const dates=filtered().map(e=>e.date);const groups={};filtered().forEach(e=>(groups[e.date]??=[]).push(e));let html='';for(let y=2016;y<=2025;y++){const months=[...new Set(filtered().filter(e=>e.date.startsWith(y+'-')).map(e=>+e.date.slice(5,7)))];if(!months.length)continue;for(const mo of months){const first=new Date(y,mo-1,1),last=new Date(y,mo,0);html+=`<h3>${y}年${mo}月</h3><div class="calendar">${['日','月','火','水','木','金','土'].map(x=>`<div class="dow">${x}</div>`).join('')}`;for(let i=0;i<first.getDay();i++)html+='<div class="day muted"></div>';for(let d=1;d<=last.getDate();d++){const key=`${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;html+=`<div class="day"><span class="num">${d}</span>${(groups[key]||[]).map(e=>`<span class="event" onclick="focusEvent('${key}')">${e.pref.replace('県','')}・${e.place.split('・').pop()}</span>`).join('')}</div>`}html+='</div>'}}document.getElementById('calendar').innerHTML=html}
+function focusEvent(date){const e=filtered().find(x=>x.date===date);if(e){map.setView([e.lat,e.lng],11);markers.find(m=>m.getLatLng().lat===e.lat&&m.getLatLng().lng===e.lng)?.openPopup()}}
+function renderEvents(){document.getElementById('stats').textContent=`${filtered().length} events / ${new Set(filtered().map(e=>e.pref)).size} prefectures`;document.getElementById('events').innerHTML=filtered().slice().sort((a,b)=>a.date.localeCompare(b.date)).map(e=>`<article class="card" onclick="focusEvent('${e.date}')"><div class="date">${e.date}　${e.pref}</div><div class="place">${e.place}</div><div class="meta">${e.local_implementer}</div></article>`).join('')}
+function renderAll(){renderFilters();renderMap();renderCalendar();renderEvents()}renderAll();
+</script>
+</body></html>
