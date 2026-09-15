@@ -1,0 +1,71 @@
+version: 1
+project: give-me-vegetable
+objective: "全国開催履歴を発見・検証し、events.jsonlを継続的に増やす"
+
+seed:
+  canonical_terms:
+    - "ギブミーベジタブル"
+    - "Give Me Vegetable"
+    - "ギブミーベジタブル 食"
+    - "ギブミーベジタブル 野菜"
+  time_range:
+    from: 2010-01-01
+    to: 2026-12-31
+  geography: Japan
+  target_fields:
+    - subject
+    - pref
+    - place
+    - date
+    - local_implementer
+    - url
+    - img_url
+  exclude:
+    - future_events_without_evidence
+    - duplicate_events
+
+research_loop:
+  - id: discover
+    action: search
+    queries:
+      - '"ギブミーベジタブル"'
+      - '"Give Me Vegetable" Japan'
+      - '"ギブミーベジタブル" 開催'
+      - '"ギブミーベジタブル" 2010'
+      - '"ギブミーベジタブル" 2011'
+      - '"ギブミーベジタブル" 2012'
+      - '"ギブミーベジタブル" 2013'
+      - '"ギブミーベジタブル" 2014'
+      - '"ギブミーベジタブル" 2015'
+  - id: expand
+    action: generate_queries
+    from: [place, prefecture, venue, organizer, year, local_name]
+  - id: verify
+    action: source_check
+    minimum_sources: 1
+    preferred_sources:
+      - official_event_page
+      - municipality
+      - tourism_association
+      - venue
+      - organizer
+      - reputable_media
+  - id: normalize
+    action: normalize
+    date: ISO-8601
+    pref: Japanese_prefecture
+  - id: dedupe
+    action: deduplicate
+    key: [date, place]
+  - id: append
+    action: append_jsonl
+    target: data/events.jsonl
+  - id: recurse
+    action: use_new_entities_as_seeds
+    from: [place, local_implementer, url]
+
+policy:
+  never_invent: true
+  keep_unknown_empty: true
+  preserve_source_url: true
+  future_event_policy: exclude
